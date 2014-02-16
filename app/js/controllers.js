@@ -4,49 +4,8 @@
 (function () {
     var controllers = angular.module('speech-habits-front.controllers', [])
 
-    function newWebSocketEventManager() {
-        var manager;
-        var handlers = {};
-
-        function registerHandler(eventTypeName, handlerFunction) {
-            if (!handlers[eventTypeName]) {
-                handlers[eventTypeName] = [];
-            }
-            var handlersForEventType = handlers[eventTypeName];
-            handlersForEventType.push(handlerFunction);
-
-            //to allow cascading
-            return manager;
-        }
-
-        var globalHandler = function (message) {
-            var messageData = JSON.parse(message.data);
-            var eventTypeName = messageData["event-type"];
-            var data = messageData["data"];
-            var handlersForType = handlers[eventTypeName];
-
-            //nothing happens if no handler registered for this type of event.
-            if (handlersForType) {
-                for (var i = 0; i < handlersForType.length; i += 1) {
-                    //applying each handler function
-                    handlersForType[i](data);
-                }
-            }
-
-
-        };
-
-        manager = {
-            "registerHandler": registerHandler,
-            "globalHandler": globalHandler
-        }
-
-        return manager;
-    }
-
-
-    controllers.controller('MainController', ['$scope', '$http', 'domain_URL', 'shf_jsonp',
-        function ($scope, $http, domain_URL, shf_jsonp) {
+    controllers.controller('MainController', ['$scope', 'domain_URL', 'shf_jsonp', 'user_service', 'sh_webSocket',
+        function ($scope, domain_URL, shf_jsonp, user_service, sh_webSocket) {
 
             /**
              * Transforms a callback function into a callback function which applies to the current scope.
@@ -62,18 +21,23 @@
                 };
             }
 
-            $scope.pseudo = "val";
+            user_service.set_pseudo('val');
 
-            shf_jsonp("/expressions").success(applying_callback_of(function (expressions_data) {
-                $scope.expressions_data = expressions_data;
+            $scope.pseudo = user_service.get_pseudo();
+
+            shf_jsonp("/expressions").
+                success(function (expressions_data) {
+                    $scope.expressions_data = expressions_data;
+                });
+
+            sh_webSocket().set_handler_for("connect", applying_callback_of(function (content) {
+                $scope.message = content;
             }));
 
-            var manager = newWebSocketEventManager();
-            manager.registerHandler("connect", applying_callback_of(function (data) {
-                $scope.message = data;
-            }));
-            var ws = new WebSocket("ws://localhost:9000/studentSocket/" + $scope.pseudo);
-            ws.onmessage = manager.globalHandler;
+            var cpt = 0;
+            $scope.ping = function () {
+                sh_webSocket().send_message("ping", "Ping number " + cpt);
+            }
 
         }]);
 }());

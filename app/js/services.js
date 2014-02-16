@@ -16,7 +16,11 @@
      */
     services.factory('shf_jsonp', ['$http', 'domain_URL', function ($http, domain_URL) {
         return function (relative_URL) {
-            return $http.jsonp(domain_URL + relative_URL + "?callback=JSON_CALLBACK");
+            return $http.jsonp("http://" + domain_URL + relative_URL,{
+                "params": {
+                    "callback": "JSON_CALLBACK"
+                }
+            });
         };
     }]);
 
@@ -103,6 +107,11 @@
                     webSocket.send(JSON.stringify(json_message));
                 }
 
+                /**
+                 * Sends the specified message into the WebSocket.
+                 * @param sh_message_type the type name of the message.
+                 * @param message_content the content of the message as a JSON object.
+                 */
                 function send_message(sh_message_type, message_content) {
                     var json_message = {
                         "message_type": sh_message_type,
@@ -126,6 +135,9 @@
                     clear_messages_to_be_sent();
                 }
 
+                /**
+                 * Sends all remaining messages if there are any, then closes the WebSocket.
+                 */
                 function finish_sending_and_close() {
 
                     //do nothing on future incoming messages
@@ -179,10 +191,10 @@
                 }
 
                 function close() {
+                    should_be_open = false;
                     if (webSocket) {
                         webSocket.close();
                     }
-                    should_be_open = false;
                 }
 
                 function set_handler_for(message_type, handler) {
@@ -208,7 +220,7 @@
                     "set_handler_for": set_handler_for,
                     "remove_handler_for": remove_handler_for,
                     "clear_handlers": clear_handlers,
-                    "finish_and_close": finish_sending_and_close()
+                    "finish_and_close": finish_sending_and_close
                 };
             }
 
@@ -231,7 +243,10 @@
                 }
             }
 
-
+            /**
+             * A function is returned.
+             * It is safer to invoke the function each time the webSocket is to be accessed.
+             */
             return function(){
                 check_sh_webSocket();
                 return sh_webSocket;
