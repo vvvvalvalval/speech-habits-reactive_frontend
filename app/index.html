@@ -7,48 +7,12 @@
 </head>
 <body>
 
-
-<div>Angular seed app: v<span app-version></span></div>
-<h1>1</h1>
-
 <div ng-controller="MainController">
     <p>You are logged in as {{pseudo}}
 
     <p>Message : {{message}}
 
     <p>Expressions : {{expressions_data}}
-</div>
-<h1>2</h1>
-
-<div ng-controller="sandbox_ctrl">
-    <div>
-        service counter 1 : {{service_cpt1}}
-    </div>
-    <div>
-        service counter 2 : {{service_cpt2}}
-    </div>
-    <div>
-        service counter 3 : {{get_service_cpt3()}}
-    </div>
-    <div>
-        local counter 1 : {{get_cpt1()}}
-        <button ng-click="incr_cpt1()">+1</button>
-    </div>
-    <div>
-        local counter 2 : {{cpt2}}
-        <button ng-click="incr_cpt2()">+1</button>
-    </div>
-    <button ng-click="no_effect()">Click Me</button>
-</div>
-<h1>3</h1>
-
-<div ng-controller="codependent">
-    <div>
-        Counter 1 : {{get1()}}
-    </div>
-    <div>
-        Counter 2 : {{get2()}}
-    </div>
 </div>
 
 <!-- In production use:

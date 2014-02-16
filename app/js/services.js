@@ -2,31 +2,240 @@
 
 /* Services */
 
-(function(){
+(function () {
     var services = angular.module('speech-habits-front.services', []);
 
     /**
      * That service holds the domain URL of the backend.
      */
-    services.value('domain_URL', 'http://localhost:9000');
+    services.value('domain_URL', 'localhost:9000');
 
     /**
      * This service is a shorthand for sending JSONP requests to the backend of the Speech-Habits application.
      * You use it just like you would $http.get, but with a relative URL
      */
-    services.factory('shf_jsonp', ['$http','domain_URL',function($http,domain_URL){
-        return function(relative_URL){
+    services.factory('shf_jsonp', ['$http', 'domain_URL', function ($http, domain_URL) {
+        return function (relative_URL) {
             return $http.jsonp(domain_URL + relative_URL + "?callback=JSON_CALLBACK");
         };
     }]);
 
-    services.factory('incrementor',[function(){
-        var cpt = 0;
+    /**
+     * This service holds the pseudo of the user, exposing methods to access and change it, and knowing if any user is logged in.
+     */
+    services.factory('user_service', function () {
 
-        return function(){
-            var result = cpt;
-            cpt += 1;
-            return result;
+        var pseudo;
+
+        function get_pseudo() {
+            return pseudo;
         }
-    }]);
+
+        function set_pseudo(new_pseudo) {
+            pseudo = new_pseudo;
+        }
+
+        function is_logged_in() {
+            if (pseudo) {
+                return true;
+            } else {
+                return false;
+            }
+        }
+
+        return {
+            "get_pseudo": get_pseudo,
+            "set_pseudo": set_pseudo,
+            "is_logged_in": is_logged_in
+        };
+    });
+
+    services.factory('sh_webSocket', ['user_service', 'domain_URL',
+        function (user_service, domain_URL) {
+
+            var sh_webSocket;
+
+            /**
+             * Factory function for a
+             * @param pseudo
+             * @returns {{send_message: send_message, set_handler_for: set_handler_for, remove_handler_for: remove_handler_for, clear_handlers: clear_handlers, finish_and_close: *}}
+             */
+            function new_sh_webSocket(pseudo) {
+
+                //the Actual webSocket object.
+                var webSocket;
+
+                /**
+                 * Whether the webSocket is currently open.
+                 * @returns {boolean}
+                 */
+                function is_open() {
+                    if (webSocket) {
+                        if (webSocket.readyState === WebSocket.OPEN) {
+                            return true;
+                        } else {
+                            return false;
+                        }
+                    } else {
+                        return false;
+                    }
+                }
+
+                /**
+                 * This object holds properties which names are the message type names and which values are handler functions for JSON message content.
+                 * @type {{Object}}
+                 */
+                var handlers = {};
+
+                /**
+                 * The queue of messages that are waiting to be sent.
+                 * @type {Array}
+                 */
+                var messages_to_be_sent = [];
+
+                /**
+                 * Whether we currently mean the webSocket to be open or closed.
+                 * @type {boolean}
+                 */
+                var should_be_open = true;
+
+                function do_send(json_message) {
+                    webSocket.send(JSON.stringify(json_message));
+                }
+
+                function send_message(sh_message_type, message_content) {
+                    var json_message = {
+                        "message_type": sh_message_type,
+                        "content": message_content
+                    };
+                    if (is_open()) {
+                        do_send(json_message);
+                    } else {
+                        messages_to_be_sent.push(json_message);
+                    }
+                }
+
+                function clear_messages_to_be_sent() {
+                    messages_to_be_sent = [];
+                }
+
+                function send_all_remaining() {
+                    forEach(messages_to_be_sent)(function (message) {
+                        do_send(message);
+                    });
+                    clear_messages_to_be_sent();
+                }
+
+                function finish_sending_and_close() {
+
+                    //do nothing on future incoming messages
+                    webSocket.onmessage = function () {
+                    };
+
+                    function send_all_and_close() {
+                        send_all_remaining();
+                        close();
+                    }
+
+                    if (webSocket.readyState === WebSocket.CONNECTING) {
+                        webSocket.onopen = send_all_and_close();
+                    } else {
+                        //We don't have to wait
+                        send_all_and_close();
+                    }
+
+
+                }
+
+                function message_handler(message) {
+                    var message_data = JSON.parse(message.data);
+                    var sh_message_type = message_data["message_type"];
+                    var handler_for_type = handlers[sh_message_type];
+
+                    if (handler_for_type) {
+                        var sh_message_content = message_data["content"];
+                        handler_for_type(sh_message_content);
+                    }
+                }
+
+                function connect() {
+
+                    should_be_open = true;
+                    webSocket = new WebSocket("ws://" + domain_URL + "/studentSocket/" + pseudo);
+                    webSocket.onopen = function () {
+
+                        //sending the awaiting messages and clearing the awaiting messages list.
+                        send_all_remaining();
+                    }
+                    webSocket.onmessage = message_handler;
+                    webSocket.onclose = function () {
+                        if (should_be_open) {
+                            //it should not have closed; re-connect.
+                            connect();
+                        } else {
+                            //alright, let it close.
+                        }
+                    }
+                }
+
+                function close() {
+                    if (webSocket) {
+                        webSocket.close();
+                    }
+                    should_be_open = false;
+                }
+
+                function set_handler_for(message_type, handler) {
+                    handlers[message_type] = handler;
+                }
+
+                function remove_handler_for(message_type) {
+                    delete handlers[message_type];
+                }
+
+                function clear_handlers() {
+                    handlers = {};
+                }
+
+                //We connect before returning
+                connect();
+
+                return {
+                    "get_pseudo": function () {
+                        return pseudo;
+                    },
+                    "send_message": send_message,
+                    "set_handler_for": set_handler_for,
+                    "remove_handler_for": remove_handler_for,
+                    "clear_handlers": clear_handlers,
+                    "finish_and_close": finish_sending_and_close()
+                };
+            }
+
+            /**
+             * This function checks if the pseudo of the current webSocket matches that of the current user.
+             * If necessary, it is created and connected.
+             */
+            function check_sh_webSocket() {
+                var pseudo = user_service.get_pseudo();
+                if (sh_webSocket) {
+                    if (sh_webSocket.get_pseudo() === pseudo) {
+                        // no problem
+                    } else {
+                        var old_webSocket = sh_webSocket;
+                        sh_webSocket = new_sh_webSocket(pseudo);
+                        old_webSocket.finish_and_close();
+                    }
+                } else {
+                    sh_webSocket = new_sh_webSocket(pseudo);
+                }
+            }
+
+
+            return function(){
+                check_sh_webSocket();
+                return sh_webSocket;
+            };
+
+        }]);
 }());

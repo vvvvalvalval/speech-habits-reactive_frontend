@@ -19,3 +19,18 @@ function forOwnProperty(obj, accept_functions, accept_inherited_members) {
         }
     };
 }
+
+/**
+ * A for-like constructs that iterates over the items of an array (or any array-like structure).
+ * @param array the array which elements are to be iterated over.
+ * @returns {Function} A function consuming a body function which takes an 'item' parameter, and optionally an 'index' parameter.
+ */
+function forEach(array) {
+    return function (body_function) {
+        var idx, item;
+        for (idx = 0; idx < array.length; idx++) {
+            item = array[idx];
+            body_function(item, idx);
+        }
+    }
+}
