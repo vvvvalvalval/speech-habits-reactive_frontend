@@ -1,0 +1,15 @@
+<div>
+    <p>You are logged in as {{pseudo}}
+
+    <table class="table">
+        <tr ng-repeat="expression in expressions" class="row">
+            <td>{{expression.getCount()}}</td>
+            <td>{{expression.text}}</td>
+            <td>
+                <button ng-click="expression.askIncrement()" class="btn btn-success">+1</button>
+            </td>
+        </tr>
+    </table>
+
+    <button class="btn btn-default" ng-click="leave_room()">Leave Room</button>
+</div>
