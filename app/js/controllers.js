@@ -139,7 +139,7 @@
                 function askIncrement() {
                     $log.debug("Asking to increment expression : " + exprText);
                     sh_webSocket().send_message(
-                        'ask-increment',
+                        'ask_increment',
                         {
                             "expression_id": myId
                         }
@@ -166,7 +166,7 @@
 
                         $scope.expressions = makeExpressions(expressions_data);
                     });
-
+                sh_webSocket().send_message("join_room",{});
                 sh_webSocket().set_handler_for("connect", applying_callback_of(function (content) {
                     $log.debug("Received connect message with content : " + content);
                     $scope.message = content;
@@ -175,9 +175,33 @@
                     var expr_id = content.expression_id;
                     find_expression_by_id(expr_id, $scope.expressions).increment_me();
                 }));
+                sh_webSocket().set_handler_for("state_update", applying_callback_of(function(content){
+                    $log.debug("Received state update.");
+
+                    var expressions_data = content.expressions;
+                    $scope.expressions = makeExpressions(expressions_data);
+                    $scope.score = content.score;
+                }));
+                sh_webSocket().set_handler_for("score_update", applying_callback_of(function(content){
+                    var old_score = content.old_score;
+                    var new_score = content.new_score;
+
+                    $log.debug("Received score update : " + old_score + " -> " + new_score);
+
+                    $scope.score = new_score;
+                }));
 
                 $scope.leave_room = function(){
                     $log.info("Leaving the room.");
+
+                    //removing the handlers
+                    var ws = sh_webSocket();
+                    ws.remove_handler_for("increment");
+                    ws.remove_handler_for("state_update");
+                    ws.remove_handler_for("score_update");
+
+                    //sending a leave-room message
+                    ws.send_message("leave_room", {});
 
                     $location.path('/login');
                 }
