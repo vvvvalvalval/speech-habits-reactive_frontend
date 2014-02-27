@@ -55,6 +55,21 @@
         );
     }
 
+    /**
+     * To make a callback/function applied in scope.
+     * @param $scope the current scope of the Controller.
+     * @returns {Function}A function consuming a function and returning the same function, with the additional effect of being applied in scope.
+     */
+    function applying_in_scope($scope) {
+        return augmented_with(function (invoke) {
+            var res;
+            $scope.$apply(function () {
+                res = invoke();
+            });
+            return res;
+        });
+    }
+
     controllers.controller('WelcomePageController', lifecycle_monitored_controller_body('WelcomePageController',
         ['$scope', '$location', 'user_service', '$log',
             function ($scope, $location, user_service, $log) {
@@ -64,27 +79,48 @@
 
                     if ($scope.pseudo) {
                         user_service.set_pseudo($scope.pseudo);
-                        $location.path("/room");
+                        $location.path("/teachers_list");
                     }
                 };
             }]));
 
-    make_sh_controller('RoomController', ['$scope', 'domain_URL', 'shf_jsonp', 'user_service', 'sh_webSocket', '$location', '$log',
-        function ($scope, domain_URL, shf_jsonp, user_service, sh_webSocket, $location, $log) {
+    make_sh_controller('TeachersListController', ['sh_webSocket', '$scope', '$location', 'user_service', '$log',
+        function (sh_webSocket, $scope, $location, user_service, $log) {
 
-            /**
-             * Transforms a callback function into a callback function which applies to the current scope.
-             * @param callback a callback function taking any number of arguments
-             * @returns {Function}
-             */
-            function applying_callback_of(callback) {
-                return function () {
-                    var args = arguments;
-                    $scope.$apply(function () {
-                        callback.apply(null, args);
-                    });
-                };
+            var teachers_list = [];
+            $scope.teachers_list = function () {
+                return teachers_list;
+            };
+
+            var scope_applying = applying_in_scope($scope);
+
+            $log.info("Requesting the list of teachers.")
+            sh_webSocket().send_message("request_teachers_list", {});
+            sh_webSocket().set_handler_for("list_of_teachers", scope_applying(function (content) {
+                $log.info("Received the list of teachers.")
+                teachers_list = content.teachers;
+            }));
+
+            function drop_handlers() {
+                sh_webSocket().remove_handler_for("list_of_teachers");
             }
+
+            $scope.pseudo = user_service.get_pseudo();
+
+            $scope.go_to_teacher_room = function (teacher_id) {
+                $log.debug("Requested to move to teacher room : " + teacher_id);
+                drop_handlers();
+                $location.path("/room/" + teacher_id)
+            }
+        }]);
+
+    make_sh_controller('RoomController', ['$scope', '$routeParams', 'domain_URL', 'shf_jsonp', 'user_service', 'sh_webSocket', '$location', '$log',
+        function ($scope, $routeParams, domain_URL, shf_jsonp, user_service, sh_webSocket, $location, $log) {
+
+            var teacher_id = +$routeParams.teacher_id;
+            $log.debug("Creating room controller for : " + teacher_id);
+
+            var applying_callback_of = applying_in_scope($scope);
 
             /**
              * Reads the specified expressions data and converts them into an array of expression objects exposing methods fr incrementing.
@@ -160,29 +196,21 @@
 
                 $scope.pseudo = user_service.get_pseudo();
 
-                shf_jsonp("/expressions").
-                    success(function (expressions_data) {
-                        $log.debug("Received the list of expressions.");
-
-                        $scope.expressions = makeExpressions(expressions_data);
-                    });
-                sh_webSocket().send_message("join_room",{});
-                sh_webSocket().set_handler_for("connect", applying_callback_of(function (content) {
-                    $log.debug("Received connect message with content : " + content);
-                    $scope.message = content;
-                }));
+                sh_webSocket().send_message("join_room", {
+                    "teacher_id": teacher_id
+                });
                 sh_webSocket().set_handler_for("increment", applying_callback_of(function (content) {
                     var expr_id = content.expression_id;
                     find_expression_by_id(expr_id, $scope.expressions).increment_me();
                 }));
-                sh_webSocket().set_handler_for("state_update", applying_callback_of(function(content){
+                sh_webSocket().set_handler_for("state_update", applying_callback_of(function (content) {
                     $log.debug("Received state update.");
 
                     var expressions_data = content.expressions;
                     $scope.expressions = makeExpressions(expressions_data);
                     $scope.score = content.score;
                 }));
-                sh_webSocket().set_handler_for("score_update", applying_callback_of(function(content){
+                sh_webSocket().set_handler_for("score_update", applying_callback_of(function (content) {
                     var old_score = content.old_score;
                     var new_score = content.new_score;
 
@@ -191,8 +219,8 @@
                     $scope.score = new_score;
                 }));
 
-                $scope.leave_room = function(){
-                    $log.info("Leaving the room.");
+                $scope.leave_room = function () {
+                    $log.info("Leaving the room of : " + teacher_id);
 
                     //removing the handlers
                     var ws = sh_webSocket();
@@ -201,9 +229,11 @@
                     ws.remove_handler_for("score_update");
 
                     //sending a leave-room message
-                    ws.send_message("leave_room", {});
+                    ws.send_message("leave_room", {
+                        "teacher_id": teacher_id
+                    });
 
-                    $location.path('/login');
+                    $location.path('/teachers_list');
                 }
             }
         }]);

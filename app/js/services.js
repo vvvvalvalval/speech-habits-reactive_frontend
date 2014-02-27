@@ -180,7 +180,7 @@
                 }
 
                 function message_handler(message) {
-
+                    //we apply to notify changes.
                     $log.debug("Message " + message.data + " just came from webSocket for " + pseudo);
 
                     var message_data = JSON.parse(message.data);
@@ -196,6 +196,7 @@
                     } else {
                         $log.warn("No handler was found for received message of type : " + sh_message_type);
                     }
+
                 }
 
                 function connect() {

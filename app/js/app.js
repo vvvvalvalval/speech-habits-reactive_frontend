@@ -12,7 +12,10 @@
         /*
          * This part declares the routing configuration that will enable us to have multiple views
          */
-        $routeProvider.when('/room', {
+        $routeProvider.when('/teachers_list', {
+            templateUrl: "partials/teachers-list.html",
+            controller: 'TeachersListController'
+        }).when('/room/:teacher_id', {
             templateUrl: 'partials/room.html',
             controller: 'RoomController'
         }).when('/login', {

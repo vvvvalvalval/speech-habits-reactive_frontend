@@ -1,0 +1,16 @@
+<!-- Partial template displaying the list of available teachers and links to join their room. -->
+
+<div class="container center-block">
+
+    <h1>Choose a teacher!</h1>
+
+    <div ng-repeat="teacher in teachers_list()">
+        <a ng-click="go_to_teacher_room(teacher.id)"> {{teacher.name}} </a>
+    </div>
+
+    <a class="btn btn-default" href="#/login">Back to Welcome page</a>
+</div>
+
+<div class="text-center text-info">
+    You are logged in as {{pseudo}}
+</div>

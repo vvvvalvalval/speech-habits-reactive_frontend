@@ -3,6 +3,27 @@
  */
 
 /**
+ * Utility for augmenting functions with a specified behavior.
+ * From the provided behavior, returns a function, that consumes other functions (regardless of their arity), and augments them with that behaviour.
+ * The additional behavior is a function with a single argument, that is a callback with no parameters. When invoked, that callback passes the arguments to the initial function and returns its result.
+ * @param additional_behaviour the additional behavior, a function with one argument, that may return a result.
+ * @returns {Function} An augmenter function consuming functions to be augmented. The augmented takes the same arguments as the initial function;
+ */
+function augmented_with(additional_behaviour) {
+    return function (initial_function) {
+        return function () {
+            var args = arguments;
+
+            var wrappee_invoker = function () {
+                return initial_function.apply(null, args);
+            }
+
+            return additional_behaviour(wrappee_invoker);
+        };
+    };
+}
+
+/**
  * Utility function that merges several injectable bodies into one injectable body that sequentially executes them.
  *
  * We call 'injectable body' an array such as those used to create AngularJS services or controllers : an array that begins with services names, and which last element is a 'body' function into which the corresponding services are injected and that gets executed.
