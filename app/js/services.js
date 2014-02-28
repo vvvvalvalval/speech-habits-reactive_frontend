@@ -8,7 +8,7 @@
     /**
      * That service holds the domain URL of the backend.
      */
-    services.value('domain_URL', 'localhost:9000');
+    services.value('domain_URL', 'ancient-taiga-8188.herokuapp.com');
 
     /**
      * This service is a shorthand for sending JSONP requests to the backend of the Speech-Habits application.

@@ -6,19 +6,29 @@
  * Utility for augmenting functions with a specified behavior.
  * From the provided behavior, returns a function, that consumes other functions (regardless of their arity), and augments them with that behaviour.
  * The additional behavior is a function with a single argument, that is a callback with no parameters. When invoked, that callback passes the arguments to the initial function and returns its result.
+ * If the additional behavior returns no result (more specifically, returns undefined), then the result of the initial function is automatically returned.
+ * Therefore, this function can be used for both adding side-effects to the initial function or intercepting its result.
  * @param additional_behaviour the additional behavior, a function with one argument, that may return a result.
  * @returns {Function} An augmenter function consuming functions to be augmented. The augmented takes the same arguments as the initial function;
  */
 function augmented_with(additional_behaviour) {
     return function (initial_function) {
         return function () {
+            var initial_res, wrapper_res;
+
             var args = arguments;
 
             var wrappee_invoker = function () {
-                return initial_function.apply(null, args);
+                initial_res = initial_function.apply(null, args);
             }
 
-            return additional_behaviour(wrappee_invoker);
+            wrapper_res = additional_behaviour(wrappee_invoker);
+
+            if(typeof wrapper_res == 'undefined'){
+                return initial_res;
+            } else {
+                return wrapper_res;
+            }
         };
     };
 }

@@ -62,11 +62,7 @@
      */
     function applying_in_scope($scope) {
         return augmented_with(function (invoke) {
-            var res;
-            $scope.$apply(function () {
-                res = invoke();
-            });
-            return res;
+            $scope.$apply(invoke);
         });
     }
 
@@ -92,11 +88,11 @@
                 return teachers_list;
             };
 
-            var scope_applying = applying_in_scope($scope);
+            var refreshing = applying_in_scope($scope);
 
             $log.info("Requesting the list of teachers.")
             sh_webSocket().send_message("request_teachers_list", {});
-            sh_webSocket().set_handler_for("list_of_teachers", scope_applying(function (content) {
+            sh_webSocket().set_handler_for("list_of_teachers", refreshing(function (content) {
                 $log.info("Received the list of teachers.")
                 teachers_list = content.teachers;
             }));
@@ -120,7 +116,7 @@
             var teacher_id = +$routeParams.teacher_id;
             $log.debug("Creating room controller for : " + teacher_id);
 
-            var applying_callback_of = applying_in_scope($scope);
+            var refreshing = applying_in_scope($scope);
 
             /**
              * Reads the specified expressions data and converts them into an array of expression objects exposing methods fr incrementing.
@@ -199,18 +195,18 @@
                 sh_webSocket().send_message("join_room", {
                     "teacher_id": teacher_id
                 });
-                sh_webSocket().set_handler_for("increment", applying_callback_of(function (content) {
+                sh_webSocket().set_handler_for("increment", refreshing(function (content) {
                     var expr_id = content.expression_id;
                     find_expression_by_id(expr_id, $scope.expressions).increment_me();
                 }));
-                sh_webSocket().set_handler_for("state_update", applying_callback_of(function (content) {
+                sh_webSocket().set_handler_for("state_update", refreshing(function (content) {
                     $log.debug("Received state update.");
 
                     var expressions_data = content.expressions;
                     $scope.expressions = makeExpressions(expressions_data);
                     $scope.score = content.score;
                 }));
-                sh_webSocket().set_handler_for("score_update", applying_callback_of(function (content) {
+                sh_webSocket().set_handler_for("score_update", refreshing(function (content) {
                     var old_score = content.old_score;
                     var new_score = content.new_score;
 
